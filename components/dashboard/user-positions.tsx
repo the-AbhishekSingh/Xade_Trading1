@@ -123,9 +123,10 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
     let ws: WebSocket | null = null;
     if (positions.length > 0) {
       try {
-        ws = initializeWebSocket();
+        ws = initializeWebSocket() || null;
       } catch (error) {
         console.error('Error initializing WebSocket:', error);
+        ws = null;
       }
     }
 
