@@ -8,16 +8,7 @@ import { formatPrice } from '@/lib/api';
 import { Loader } from 'lucide-react';
 import { getCurrentUser, fetchPositions, closePosition } from '@/lib/api';
 import { usePositionsReload } from './PositionsReloadContext';
-
-interface Position {
-  id: string;
-  market: string;
-  amount: number;
-  entry_price: number;
-  current_price: number;
-  pnl: number;
-  pnl_percentage: number;
-}
+import { Position } from '@/lib/types';
 
 interface UserPositionsProps {
   reloadOrders: () => void;
@@ -41,13 +32,19 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
 
       // Remove cache check to always get fresh data
       const positions = await fetchPositions(walletAddress);
-      setPositions(positions.map(pos => ({
-        ...pos,
+      setPositions(positions.map((pos: any) => ({
+        id: pos.id,
+        user_id: pos.user_id || '',
+        market: pos.symbol || pos.market || '',
+        symbol: pos.symbol || pos.market || '',
         amount: Number(pos.amount) || 0,
         entry_price: Number(pos.entry_price) || 0,
         current_price: Number(pos.current_price) || 0,
         pnl: Number(pos.pnl) || 0,
-        pnl_percentage: Number(pos.pnl_percentage) || 0
+        pnlPercentage: Number(pos.pnl_percentage) || 0,
+        is_open: pos.is_open ?? true,
+        created_at: pos.created_at || new Date().toISOString(),
+        updated_at: pos.updated_at || new Date().toISOString()
       })));
       lastFetchTimeRef.current = Date.now();
       setError(null);
@@ -96,7 +93,7 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
                       ...pos,
                       current_price: price,
                       pnl,
-                      pnl_percentage: pnlPercentage
+                      pnlPercentage: pnlPercentage
                     };
                   }
                   return pos;
@@ -242,7 +239,7 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
                   <div>
                     <span className="text-neutral-400">PnL</span>
                     <span className={`ml-2 ${position.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      ${Number(position.pnl || 0).toFixed(2)} ({Number(position.pnl_percentage || 0).toFixed(2)}%)
+                      ${Number(position.pnl || 0).toFixed(2)} ({Number(position.pnlPercentage || 0).toFixed(2)}%)
                     </span>
                   </div>
                 </div>

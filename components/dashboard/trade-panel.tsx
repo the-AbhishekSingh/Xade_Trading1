@@ -133,7 +133,7 @@ export function TradePanel({ market, currentPrice = 0 }: TradePanelProps) {
         setBalance(newBalance);
         
         // Set leverage (default to 1 if not set)
-        const userLeverage = user.leverage || 1;
+        const userLeverage = 1;
         setLeverage(userLeverage);
         
         // Calculate available margin (buying power * leverage)

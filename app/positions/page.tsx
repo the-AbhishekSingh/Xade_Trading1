@@ -182,16 +182,16 @@ export default function PositionsPage() {
                       {formatPrice(position.pnl)} ({formatPercentage(position.pnlPercentage)})
                     </div>
                     <div className="text-sm text-gray-400">
-                      Entry: {formatPrice(position.entryPrice)}
+                      Entry: {formatPrice(position.entry_price)}
                     </div>
                     <div className="text-sm text-gray-400">
-                      Current: {formatPrice(position.currentPrice)}
+                      Current: {formatPrice(position.current_price)}
                     </div>
                   </div>
                 </div>
                 <div className="flex justify-between items-center">
                   <div className="text-sm text-gray-400">
-                    Opened: {new Date(position.createdAt).toLocaleString()}
+                    Opened: {new Date(position.created_at).toLocaleString()}
                   </div>
                   <button
                     onClick={() => handleCloseClick(position)}
@@ -213,8 +213,8 @@ export default function PositionsPage() {
           <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
             <h2 className="text-xl font-semibold mb-4">Close Position</h2>
             <div className="mb-4">
-              <p className="text-gray-400 mb-2">Current Price: {formatPrice(selectedPosition.currentPrice)}</p>
-              <p className="text-gray-400 mb-2">Entry Price: {formatPrice(selectedPosition.entryPrice)}</p>
+              <p className="text-gray-400 mb-2">Current Price: {formatPrice(selectedPosition.current_price)}</p>
+              <p className="text-gray-400 mb-2">Entry Price: {formatPrice(selectedPosition.entry_price)}</p>
               <p className="text-gray-400 mb-2">PnL: {formatPrice(selectedPosition.pnl)} ({formatPercentage(selectedPosition.pnlPercentage)})</p>
             </div>
             <div className="flex justify-end gap-4">
