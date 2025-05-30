@@ -444,13 +444,28 @@ export const formatVolume = (volume: number): string => {
 
 export const fetchCurrentPrice = async (symbol: string): Promise<number> => {
   try {
-    const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
-    if (!response.ok) throw new Error('Failed to fetch price');
+    // Ensure symbol is in the correct format (e.g., BTCUSDT)
+    const formattedSymbol = symbol.toUpperCase();
+    
+    const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${formattedSymbol}`);
+    if (!response.ok) {
+      console.error(`Failed to fetch price for ${formattedSymbol}: ${response.statusText}`);
+      throw new Error(`Failed to fetch price for ${formattedSymbol}`);
+    }
+    
     const data = await response.json();
-    return parseFloat(data.price);
+    const price = parseFloat(data.price);
+    
+    if (isNaN(price)) {
+      console.error(`Invalid price received for ${formattedSymbol}: ${data.price}`);
+      throw new Error(`Invalid price received for ${formattedSymbol}`);
+    }
+    
+    return price;
   } catch (error) {
-    console.error('Error fetching current price:', error);
-    return 0;
+    console.error(`Error fetching current price for ${symbol}:`, error);
+    // Instead of returning 0, throw the error to be handled by the caller
+    throw error;
   }
 };
 
@@ -470,26 +485,24 @@ export const fetchPositions = async (walletAddress: string): Promise<Position[]>
           // Calculate PnL and other values
           const entryPrice = parseFloat(p.entry_price) || 0;
           const amount = parseFloat(p.amount) || 0;
-          const pnl = parseFloat(p.pnl) || 0;
           
-          // Calculate PnL percentage
-          let pnlPercentage = 0;
-          if (entryPrice > 0) {
-            pnlPercentage = ((currentPrice - entryPrice) / entryPrice) * 100;
-          }
+          // Calculate PnL and PnL percentage
+          const pnl = (currentPrice - entryPrice) * amount;
+          const pnlPercentage = entryPrice > 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 : 0;
           
           return {
             id: p.id,
-            symbol: p.market || p.symbol,
-            side: p.position_type || 'LONG',
-            entryPrice: entryPrice,
-            currentPrice: currentPrice,
-            size: amount,
-            leverage: parseFloat(p.leverage) || 1,
+            user_id: p.user_id || '',
+            market: p.market || p.symbol || '',
+            symbol: p.symbol || p.market || '',
+            amount: amount,
+            entry_price: entryPrice,
+            current_price: currentPrice,
             pnl: pnl,
             pnlPercentage: pnlPercentage,
-            liquidationPrice: parseFloat(p.liquidation_price) || 0,
-            createdAt: p.created_at || ''
+            is_open: p.is_open ?? true,
+            created_at: p.created_at || new Date().toISOString(),
+            updated_at: p.updated_at || new Date().toISOString()
           };
         } catch (error) {
           console.error(`Error fetching price for position ${p.id}:`, error);
