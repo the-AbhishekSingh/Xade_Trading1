@@ -32,20 +32,26 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
 
       // Remove cache check to always get fresh data
       const positions = await fetchPositions(walletAddress);
-      setPositions(positions.map((pos: any) => ({
-        id: pos.id,
-        user_id: pos.user_id || '',
-        market: pos.symbol || pos.market || '',
-        symbol: pos.symbol || pos.market || '',
-        amount: Number(pos.amount) || 0,
-        entry_price: Number(pos.entry_price) || 0,
-        current_price: Number(pos.current_price) || 0,
-        pnl: Number(pos.pnl) || 0,
-        pnlPercentage: Number(pos.pnl_percentage) || 0,
-        is_open: pos.is_open ?? true,
-        created_at: pos.created_at || new Date().toISOString(),
-        updated_at: pos.updated_at || new Date().toISOString()
-      })));
+      
+      // Filter out closed positions and ensure proper data formatting
+      const activePositions = positions
+        .filter((pos: any) => pos.is_open)
+        .map((pos: any) => ({
+          id: pos.id,
+          user_id: pos.user_id || '',
+          market: pos.symbol || pos.market || '',
+          symbol: pos.symbol || pos.market || '',
+          amount: Number(pos.amount) || 0,
+          entry_price: Number(pos.entry_price) || 0,
+          current_price: Number(pos.current_price) || 0,
+          pnl: Number(pos.pnl) || 0,
+          pnlPercentage: Number(pos.pnl_percentage) || 0,
+          is_open: true,
+          created_at: pos.created_at || new Date().toISOString(),
+          updated_at: pos.updated_at || new Date().toISOString()
+        }));
+
+      setPositions(activePositions);
       lastFetchTimeRef.current = Date.now();
       setError(null);
     } catch (err) {
@@ -94,8 +100,15 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
                 prevPositions.map(pos => {
                   // Compare symbols case-insensitively
                   if (pos.market && pos.market.toUpperCase() === symbol.toUpperCase()) {
-                    const pnl = (price - pos.entry_price) * pos.amount;
-                    const pnlPercentage = pos.entry_price ? ((price - pos.entry_price) / pos.entry_price) * 100 : 0;
+                    // Calculate PnL based on position type (long/short)
+                    const pnl = pos.amount >= 0 
+                      ? (price - pos.entry_price) * pos.amount  // Long position
+                      : (pos.entry_price - price) * Math.abs(pos.amount);  // Short position
+                    const pnlPercentage = pos.entry_price > 0 
+                      ? (pos.amount >= 0 
+                        ? ((price - pos.entry_price) / pos.entry_price) * 100  // Long position
+                        : ((pos.entry_price - price) / pos.entry_price) * 100)  // Short position
+                      : 0;
                     return {
                       ...pos,
                       current_price: price,
@@ -228,7 +241,7 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
                       {position.market}
                     </span>
                     <span className={`text-sm px-2 py-1 rounded ${position.pnl >= 0 ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
-                      {position.pnl >= 0 ? 'LONG' : 'SHORT'}
+                      {position.amount > 0 ? 'LONG' : 'SHORT'}
                     </span>
                   </div>
                   <button

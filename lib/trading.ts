@@ -81,24 +81,27 @@ export const createOrder = async (
       return null;
     }
     
-    // Create a new position if it's a buy order
-    if (positionType === 'Buy') {
-      const positionResult = await createPosition(userData.id, market, amount, entryPrice);
-      if (!positionResult) {
-        console.error('Error creating position');
-        // Try to rollback the order and balance
-        await supabase
-          .from('orders')
-          .delete()
-          .eq('id', data.id);
-        await supabase
-          .from('users')
-          .update({ 
-            current_balance: userData.current_balance 
-          })
-          .eq('id', userData.id);
-        return null;
-      }
+    // Create a new position for both buy and sell orders
+    const positionResult = await createPosition(
+      userData.id, 
+      market, 
+      positionType === 'Buy' ? amount : -amount, // Negative amount for sell orders
+      entryPrice
+    );
+    if (!positionResult) {
+      console.error('Error creating position');
+      // Try to rollback the order and balance
+      await supabase
+        .from('orders')
+        .delete()
+        .eq('id', data.id);
+      await supabase
+        .from('users')
+        .update({ 
+          current_balance: userData.current_balance 
+        })
+        .eq('id', userData.id);
+      return null;
     }
     
     return data as Order;
@@ -254,16 +257,9 @@ export const closePosition = async (
     }
     
     const position = data as Position & { users: { wallet_address: string } };
-    const finalPnl = (closePrice - position.entry_price) * position.amount;
-    
-    // Create a sell order using wallet address
-    await createOrder(
-      position.users.wallet_address,
-      position.market,
-      'Sell',
-      position.amount,
-      closePrice
-    );
+    const finalPnl = position.amount >= 0 
+      ? (closePrice - position.entry_price) * position.amount  // Long position
+      : (position.entry_price - closePrice) * Math.abs(position.amount);  // Short position
     
     // Update user balance with profit/loss
     const { data: userData, error: userError } = await supabase
@@ -278,10 +274,22 @@ export const closePosition = async (
     }
     
     const user = userData as User;
-    const newBalance = (user.current_balance || 0) + (position.amount * closePrice) + finalPnl;
+    const newBalance = (user.current_balance || 0) + finalPnl;
     const newPnl = (user.current_pnl || 0) + finalPnl;
     
-    await updateUserBalance(position.user_id, newBalance, newPnl);
+    // Update user balance and PnL
+    const { error: balanceError } = await supabase
+      .from('users')
+      .update({ 
+        current_balance: newBalance,
+        current_pnl: newPnl
+      })
+      .eq('id', position.user_id);
+
+    if (balanceError) {
+      console.error('Error updating user balance:', balanceError);
+      return false;
+    }
     
     // Close the position
     const { error: updateError } = await supabase
