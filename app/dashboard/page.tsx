@@ -259,7 +259,14 @@ export default function DashboardPage() {
         setPositions(positions);
         console.log('Positions from backend:', positions); // Debug log
         const balance = user.current_balance ?? 0;
-        setPortfolioValue(balance);
+        const totalPositionValue = positions.reduce((sum: number, p: Position) => sum + (p.amount * p.current_price), 0);
+        const totalPnL = positions.reduce((acc: number, pos: Position) => acc + pos.pnl, 0);
+        const portfolioValue = balance + totalPositionValue;
+        const pnlPercentage = balance ? (totalPnL / balance) * 100 : 0;
+        
+        setPortfolioValue(portfolioValue);
+        setPnl({ value: totalPnL, percentage: pnlPercentage });
+        
         const notional = positions.reduce((sum: number, p: Position) => sum + (p.amount * p.entry_price), 0);
         const buyingPower = balance * 5 - notional;
         setMarginInfo({
@@ -267,9 +274,6 @@ export default function DashboardPage() {
           used: notional,
           total: balance * 5
         });
-        const totalPnL = positions.reduce((acc: number, pos: Position) => acc + pos.pnl, 0);
-        const pnlPercentage = balance ? (totalPnL / balance) * 100 : 0;
-        setPnl({ value: totalPnL, percentage: pnlPercentage });
       }
     } finally {
       setIsLoading(false);
@@ -280,10 +284,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
     console.log('Live positions state:', positions); // Debug log
+    const totalPositionValue = positions.reduce((sum, pos) => sum + (pos.amount * pos.current_price), 0);
     const totalPnL = positions.reduce((acc, pos) => acc + pos.pnl, 0);
-    const totalNotional = positions.reduce((sum, pos) => sum + (pos.amount * pos.entry_price), 0);
-    const portfolioValue = (user.current_balance ?? 0) + totalPnL;
-    const pnlPercentage = portfolioValue ? (totalPnL / portfolioValue) * 100 : 0;
+    const portfolioValue = (user.current_balance ?? 0) + totalPositionValue;
+    const pnlPercentage = user.current_balance ? (totalPnL / user.current_balance) * 100 : 0;
 
     setPortfolioValue(portfolioValue);
     setPnl({ value: totalPnL, percentage: pnlPercentage });
