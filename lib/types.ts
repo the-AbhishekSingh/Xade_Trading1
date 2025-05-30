@@ -47,6 +47,9 @@ export interface Token {
   market_cap: number;
   market_cap_rank: number;
   price_change_percentage_24h: number;
+  volume_24h: number;
+  quoteAsset: string;
+  baseAsset: string;
 }
 
 export interface OrderBookEntry {
@@ -55,8 +58,8 @@ export interface OrderBookEntry {
 }
 
 export interface OrderBook {
-  bids: OrderBookEntry[];
-  asks: OrderBookEntry[];
+  bids: { price: number; quantity: number }[];
+  asks: { price: number; quantity: number }[];
 }
 
 export interface Market {
