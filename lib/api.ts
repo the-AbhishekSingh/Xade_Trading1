@@ -97,17 +97,16 @@ interface User {
 // Add position-related interfaces
 interface Position {
   id: string;
-  user_id: string;
-  market: string;
   symbol: string;
-  amount: number;
-  entry_price: number;
-  current_price: number;
+  side: 'LONG' | 'SHORT';
+  entryPrice: number;
+  currentPrice: number;
+  size: number;
+  leverage: number;
   pnl: number;
   pnlPercentage: number;
-  is_open: boolean;
-  created_at: string;
-  updated_at: string;
+  liquidationPrice: number;
+  createdAt: string;
 }
 
 // Add getCurrentUser function
@@ -527,12 +526,12 @@ export const updatePositionPrices = async (positions: Position[]): Promise<Posit
       positions.map(async (position) => {
         try {
           const currentPrice = await fetchCurrentPrice(position.symbol);
-          const pnlPercentage = ((currentPrice - position.entry_price) / position.entry_price) * 100;
-          const pnl = (currentPrice - position.entry_price) * position.amount;
+          const pnlPercentage = ((currentPrice - position.entryPrice) / position.entryPrice) * 100;
+          const pnl = (currentPrice - position.entryPrice) * position.size;
 
           return {
             ...position,
-            current_price: currentPrice,
+            currentPrice,
             pnl,
             pnlPercentage
           };
