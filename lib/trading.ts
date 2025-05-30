@@ -162,6 +162,50 @@ export const createPosition = async (
     // Calculate initial PnL (should be 0 for new position)
     const pnl = 0;
 
+    // Check if there's an existing position for this market
+    const { data: existingPosition, error: fetchError } = await supabase
+      .from('active_positions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('market', market)
+      .eq('is_open', true)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      console.error('Error checking existing position:', fetchError);
+      return null;
+    }
+
+    if (existingPosition) {
+      // Update existing position
+      const newAmount = parseFloat(existingPosition.amount) + amount;
+      const { data: updatedPosition, error: updateError } = await supabase
+        .from('active_positions')
+        .update({
+          amount: newAmount,
+          entry_price: entryPrice,
+          current_price: currentPrice,
+          pnl: 0
+        })
+        .eq('id', existingPosition.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating existing position:', updateError);
+        return null;
+      }
+
+      return {
+        ...updatedPosition,
+        amount: parseFloat(updatedPosition.amount as unknown as string),
+        entry_price: parseFloat(updatedPosition.entry_price as unknown as string),
+        current_price: parseFloat(updatedPosition.current_price as unknown as string),
+        pnl: parseFloat(updatedPosition.pnl as unknown as string)
+      } as Position;
+    }
+
+    // Create new position if none exists
     const newPosition = {
       id: uuidv4(),
       user_id: userId,
