@@ -118,8 +118,8 @@ export const getCurrentUser = async (walletAddress: string): Promise<User | null
     return {
       id: user.id,
       walletAddress: user.wallet_address,
-      balance: user.current_balance,
-      tier: user.tier,
+      balance: user.current_balance || 0,
+      tier: user.tier || '',
       createdAt: user.created_at || ''
     };
   } catch (error) {
@@ -237,7 +237,7 @@ export const initializeWebSocket = (symbols: string[]) => {
 
   try {
     // Create streams string for all symbols, ensuring no duplicates
-    const uniqueSymbols = [...new Set(symbols)];
+    const uniqueSymbols = Array.from(new Set(symbols));
     
     // Split into chunks if URL is too long (Binance has a limit)
     const symbolChunks = uniqueSymbols.reduce((chunks: string[][], symbol, index) => {

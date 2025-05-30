@@ -34,7 +34,7 @@ export async function updatePositionPrices(positions: Position[]): Promise<Posit
   // For now, we'll simulate price updates with small random changes
   return positions.map(position => ({
     ...position,
-    currentPrice: position.currentPrice * (1 + (Math.random() - 0.5) * 0.001),
+    currentPrice: position.current_price * (1 + (Math.random() - 0.5) * 0.001),
     pnl: 0, // This would be calculated based on the new currentPrice
     pnlPercentage: 0 // This would be calculated based on the new currentPrice
   }));

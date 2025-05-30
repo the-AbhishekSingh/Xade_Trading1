@@ -278,8 +278,8 @@ export const closePosition = async (
     }
     
     const user = userData as User;
-    const newBalance = user.current_balance + (position.amount * closePrice) + finalPnl;
-    const newPnl = user.current_pnl + finalPnl;
+    const newBalance = (user.current_balance || 0) + (position.amount * closePrice) + finalPnl;
+    const newPnl = (user.current_pnl || 0) + finalPnl;
     
     await updateUserBalance(position.user_id, newBalance, newPnl);
     
