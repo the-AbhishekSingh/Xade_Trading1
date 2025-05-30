@@ -34,7 +34,7 @@ export function TradePanel({ market, currentPrice = 0 }: TradePanelProps) {
   const [balance, setBalance] = useState<number>(0);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [leverage, setLeverage] = useState(1);
+  const [leverage, setLeverage] = useState(5);
   const [availableMargin, setAvailableMargin] = useState(0);
   const userFetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastFetchTimeRef = useRef<number>(Date.now());
@@ -132,8 +132,8 @@ export function TradePanel({ market, currentPrice = 0 }: TradePanelProps) {
         const newBalance = user.current_balance || 0;
         setBalance(newBalance);
         
-        // Set leverage (default to 1 if not set)
-        const userLeverage = 1;
+        // Set leverage (default to 5 if not set)
+        const userLeverage = 5;
         setLeverage(userLeverage);
         
         // Calculate available margin (buying power * leverage)
