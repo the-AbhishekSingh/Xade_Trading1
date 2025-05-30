@@ -375,7 +375,7 @@ export default function DashboardPage() {
             <span className="text-white text-lg font-semibold">x5</span>
           </div>
           <div className="flex flex-col items-start justify-center">
-            <span className="text-xs text-neutral-400">Buying Power</span>
+            <span className="text-xs text-neutral-400">Available Margin</span>
             <span className="text-white text-lg font-semibold">${marginInfo.available.toFixed(2)}</span>
           </div>
         </div>
