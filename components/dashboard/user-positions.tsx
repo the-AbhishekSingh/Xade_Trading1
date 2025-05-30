@@ -9,6 +9,7 @@ import { Loader } from 'lucide-react';
 import { getCurrentUser, fetchPositions, closePosition } from '@/lib/api';
 import { usePositionsReload } from './PositionsReloadContext';
 import { Position } from '@/lib/types';
+import { supabase } from '@/lib/supabase';
 
 interface UserPositionsProps {
   reloadOrders: () => void;
@@ -67,24 +68,18 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
 
     // Initialize WebSocket for all positions
     const initializeWebSocket = () => {
-      // Filter out any invalid market symbols and ensure they exist
-      const validSymbols = positions
-        .filter(pos => pos.market && typeof pos.market === 'string')
-        .map(pos => pos.market);
-      
-      if (validSymbols.length === 0) return;
-
-      // Format symbols for Binance WebSocket (e.g., BTCUSDT -> btcusdt@ticker)
-      const formattedSymbols = validSymbols
-        .map(symbol => `${symbol.toLowerCase()}@ticker`)
-        .join('/');
-
-      console.log('Initializing WebSocket with symbols:', formattedSymbols); // Debug log
-
-      const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${formattedSymbols}`);
+      const ws = new WebSocket('wss://stream.binance.com:9443/ws');
       
       ws.onopen = () => {
-        console.log('WebSocket connection established'); // Debug log
+        console.log('WebSocket connected');
+        // Subscribe to ticker updates for all positions
+        const symbols = positions.map(pos => pos.market.toLowerCase());
+        const subscribeMsg = {
+          method: 'SUBSCRIBE',
+          params: symbols.map(symbol => `${symbol}@ticker`),
+          id: 1
+        };
+        ws.send(JSON.stringify(subscribeMsg));
       };
       
       ws.onmessage = (event) => {
@@ -95,20 +90,24 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
             const price = parseFloat(data.c);
             
             if (!isNaN(price)) {
-              console.log(`Received price update for ${symbol}: ${price}`); // Debug log
               setPositions(prevPositions => 
                 prevPositions.map(pos => {
-                  // Compare symbols case-insensitively
                   if (pos.market && pos.market.toUpperCase() === symbol.toUpperCase()) {
                     // Calculate PnL based on position type (long/short)
                     const pnl = pos.amount >= 0 
                       ? (price - pos.entry_price) * pos.amount  // Long position
                       : (pos.entry_price - price) * Math.abs(pos.amount);  // Short position
+                    
+                    // Calculate PnL percentage
                     const pnlPercentage = pos.entry_price > 0 
                       ? (pos.amount >= 0 
                         ? ((price - pos.entry_price) / pos.entry_price) * 100  // Long position
                         : ((pos.entry_price - price) / pos.entry_price) * 100)  // Short position
                       : 0;
+
+                    // Update the position in the database
+                    updatePositionPrice(pos.id, price, pnl, pnlPercentage);
+                    
                     return {
                       ...pos,
                       current_price: price,
@@ -128,13 +127,11 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
-        // Attempt to reconnect after a delay
         setTimeout(initializeWebSocket, 5000);
       };
 
       ws.onclose = () => {
-        console.log('WebSocket connection closed, attempting to reconnect...'); // Debug log
-        // Attempt to reconnect after a delay
+        console.log('WebSocket connection closed, attempting to reconnect...');
         setTimeout(initializeWebSocket, 5000);
       };
 
@@ -214,6 +211,27 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
         description: "Failed to close position",
         variant: "destructive",
       });
+    }
+  };
+
+  // Add this new function to update position prices in the database
+  const updatePositionPrice = async (positionId: string, currentPrice: number, pnl: number, pnlPercentage: number) => {
+    try {
+      const { error } = await supabase
+        .from('active_positions')
+        .update({
+          current_price: currentPrice,
+          pnl: pnl,
+          pnl_percentage: pnlPercentage,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', positionId);
+
+      if (error) {
+        console.error('Error updating position price:', error);
+      }
+    } catch (error) {
+      console.error('Error in updatePositionPrice:', error);
     }
   };
 
