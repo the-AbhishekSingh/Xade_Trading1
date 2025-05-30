@@ -73,7 +73,13 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
         .map(symbol => `${symbol.toLowerCase()}@ticker`)
         .join('/');
 
+      console.log('Initializing WebSocket with symbols:', formattedSymbols); // Debug log
+
       const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${formattedSymbols}`);
+      
+      ws.onopen = () => {
+        console.log('WebSocket connection established'); // Debug log
+      };
       
       ws.onmessage = (event) => {
         try {
@@ -83,6 +89,7 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
             const price = parseFloat(data.c);
             
             if (!isNaN(price)) {
+              console.log(`Received price update for ${symbol}: ${price}`); // Debug log
               setPositions(prevPositions => 
                 prevPositions.map(pos => {
                   // Compare symbols case-insensitively
@@ -93,7 +100,7 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
                       ...pos,
                       current_price: price,
                       pnl,
-                      pnlPercentage: pnlPercentage
+                      pnlPercentage
                     };
                   }
                   return pos;
@@ -113,6 +120,7 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
       };
 
       ws.onclose = () => {
+        console.log('WebSocket connection closed, attempting to reconnect...'); // Debug log
         // Attempt to reconnect after a delay
         setTimeout(initializeWebSocket, 5000);
       };
@@ -129,6 +137,11 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
         ws = null;
       }
     }
+
+    // Set up periodic position refresh
+    const refreshInterval = setInterval(() => {
+      loadPositions();
+    }, 30000); // Refresh every 30 seconds
 
     // Listen for position updates
     const handlePositionUpdate = () => {
@@ -147,6 +160,7 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
       if (ws) {
         ws.close();
       }
+      clearInterval(refreshInterval);
       window.removeEventListener('positionUpdate', handlePositionUpdate);
       window.removeEventListener('forcePositionUpdate', handleForcePositionUpdate);
     };
