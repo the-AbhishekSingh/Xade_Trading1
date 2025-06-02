@@ -31,11 +31,33 @@ export interface Position {
   amount: number;
   entry_price: number;
   current_price: number;
+  collateral: number;
+  leverage: number;
+  liquidation_price: number;
+  margin_mode: 'isolated' | 'cross';
   pnl: number;
   pnlPercentage: number;
   is_open: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface PositionFilters {
+  market?: string;
+  minSize?: number;
+  maxSize?: number;
+  minPnL?: number;
+  maxPnL?: number;
+  marginMode?: 'isolated' | 'cross';
+  isOpen?: boolean;
+}
+
+export interface PositionUpdate {
+  id: string;
+  current_price: number;
+  pnl: number;
+  pnlPercentage: number;
+  liquidation_price: number;
 }
 
 export interface Token {

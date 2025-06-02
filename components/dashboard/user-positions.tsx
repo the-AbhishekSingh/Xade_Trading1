@@ -259,7 +259,7 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
                       {position.market}
                     </span>
                     <span className={`text-sm px-2 py-1 rounded ${position.pnl >= 0 ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
-                      {position.amount > 0 ? 'LONG' : 'SHORT'}
+                      {position.amount >= 0 ? 'LONG' : 'SHORT'}
                     </span>
                   </div>
                   <button
