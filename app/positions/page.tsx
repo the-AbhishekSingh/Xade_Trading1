@@ -15,15 +15,19 @@ const mapApiPositionToPosition = (apiPos: any): Position => ({
   id: apiPos.id,
   user_id: apiPos.user_id ?? '',
   market: apiPos.market ?? apiPos.symbol ?? '',
-  symbol: apiPos.symbol ?? apiPos.market ?? '',  // Ensure symbol is populated
-  amount: Number(apiPos.amount ?? apiPos.size ?? 0),
-  entry_price: Number(apiPos.entry_price ?? apiPos.entryPrice ?? 0),
-  current_price: Number(apiPos.current_price ?? apiPos.currentPrice ?? 0),
-  pnl: Number(apiPos.pnl ?? 0),
-  pnlPercentage: Number(apiPos.pnlPercentage ?? 0),
-  is_open: apiPos.is_open ?? true,
-  created_at: apiPos.created_at ?? apiPos.createdAt ?? new Date().toISOString(),
-  updated_at: apiPos.updated_at ?? apiPos.updatedAt ?? new Date().toISOString()
+  symbol: apiPos.symbol ?? apiPos.market ?? '',
+  amount: Number(apiPos.amount) || 0,
+  entry_price: Number(apiPos.entry_price) || 0,
+  current_price: Number(apiPos.current_price) || 0,
+  pnl: Number(apiPos.pnl) || 0,
+  pnlPercentage: Number(apiPos.pnl_percentage) || 0,
+  is_open: apiPos.is_open,
+  created_at: apiPos.created_at || new Date().toISOString(),
+  updated_at: apiPos.updated_at || new Date().toISOString(),
+  collateral: Number(apiPos.collateral) || 0,
+  leverage: Number(apiPos.leverage) || 1,
+  liquidation_price: Number(apiPos.liquidation_price) || 0,
+  margin_mode: apiPos.margin_mode || 'cross',
 });
 
 export default function PositionsPage() {

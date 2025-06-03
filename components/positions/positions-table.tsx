@@ -159,7 +159,7 @@ export function PositionsTable({ userId, onPositionUpdate }: PositionsTableProps
         />
         <Select
           value={filters.marginMode || ''}
-          onChange={(value) => setFilters({ ...filters, marginMode: value as 'isolated' | 'cross' })}
+          onValueChange={(value) => setFilters({ ...filters, marginMode: value as 'isolated' | 'cross' })}
         >
           <option value="">All Margin Modes</option>
           <option value="isolated">Isolated</option>
