@@ -10,6 +10,7 @@ import { getCurrentUser, fetchPositions, closePosition } from '@/lib/api';
 import { usePositionsReload } from './PositionsReloadContext';
 import { Position } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 
 interface UserPositionsProps {
   reloadOrders: () => void;
@@ -22,6 +23,7 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
   const [error, setError] = useState<string | null>(null);
   const lastFetchTimeRef = useRef<number>(Date.now());
   const CACHE_DURATION = 60000; // 1 minute cache
+  const router = useRouter();
 
   const loadPositions = async () => {
     try {
@@ -34,9 +36,8 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
       // Remove cache check to always get fresh data
       const positions = await fetchPositions(walletAddress);
       
-      // Filter out closed positions and ensure proper data formatting
-      const activePositions = positions
-        .filter((pos: any) => pos.is_open)
+      // Show all positions (open and closed)
+      const allPositions = positions
         .map((pos: any) => ({
           id: pos.id,
           user_id: pos.user_id || '',
@@ -47,17 +48,22 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
           current_price: Number(pos.current_price) || 0,
           pnl: Number(pos.pnl) || 0,
           pnlPercentage: Number(pos.pnl_percentage) || 0,
-          is_open: true,
+          is_open: pos.is_open,
           created_at: pos.created_at || new Date().toISOString(),
-          updated_at: pos.updated_at || new Date().toISOString()
+          updated_at: pos.updated_at || new Date().toISOString(),
+          collateral: Number(pos.collateral) || 0,
+          leverage: Number(pos.leverage) || 1,
+          liquidation_price: Number(pos.liquidation_price) || 0,
+          margin_mode: pos.margin_mode || 'cross'
         }));
 
-      setPositions(activePositions);
+      setPositions(allPositions);
       lastFetchTimeRef.current = Date.now();
       setError(null);
     } catch (err) {
       console.error('Error loading positions:', err);
-      setError('Failed to load positions');
+      setError('Failed to load positions. Retrying in 5 seconds...');
+      setTimeout(loadPositions, 5000);
     } finally {
       setIsLoading(false);
     }
@@ -66,48 +72,45 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
   useEffect(() => {
     loadPositions();
 
-    // Initialize WebSocket for all positions
+    // Initialize WebSocket for all positions (open and closed)
     const initializeWebSocket = () => {
       const ws = new WebSocket('wss://stream.binance.com:9443/ws');
-      
       ws.onopen = () => {
         console.log('WebSocket connected');
-        // Subscribe to ticker updates for all positions
+        // Subscribe to ticker updates for all positions (open and closed)
         const symbols = positions.map(pos => pos.market.toLowerCase());
+        const uniqueSymbols = Array.from(new Set(symbols));
         const subscribeMsg = {
           method: 'SUBSCRIBE',
-          params: symbols.map(symbol => `${symbol}@ticker`),
+          params: uniqueSymbols.map(symbol => `${symbol}@ticker`),
           id: 1
         };
         ws.send(JSON.stringify(subscribeMsg));
       };
-      
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
           if (data.e === 'ticker') {
             const symbol = data.s;
             const price = parseFloat(data.c);
-            
             if (!isNaN(price)) {
-              setPositions(prevPositions => 
+              setPositions(prevPositions =>
                 prevPositions.map(pos => {
                   if (pos.market && pos.market.toUpperCase() === symbol.toUpperCase()) {
                     // Calculate PnL based on position type (long/short)
-                    const pnl = pos.amount >= 0 
+                    const pnl = pos.amount >= 0
                       ? (price - pos.entry_price) * pos.amount  // Long position
                       : (pos.entry_price - price) * Math.abs(pos.amount);  // Short position
-                    
                     // Calculate PnL percentage
-                    const pnlPercentage = pos.entry_price > 0 
-                      ? (pos.amount >= 0 
+                    const pnlPercentage = pos.entry_price > 0
+                      ? (pos.amount >= 0
                         ? ((price - pos.entry_price) / pos.entry_price) * 100  // Long position
                         : ((pos.entry_price - price) / pos.entry_price) * 100)  // Short position
                       : 0;
-
-                    // Update the position in the database
-                    updatePositionPrice(pos.id, price, pnl, pnlPercentage);
-                    
+                    // Update the position in the database (optional for closed positions)
+                    if (pos.is_open) {
+                      updatePositionPrice(pos.id, price, pnl, pnlPercentage);
+                    }
                     return {
                       ...pos,
                       current_price: price,
@@ -124,17 +127,14 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
           console.error('Error processing WebSocket message:', error);
         }
       };
-
       ws.onerror = (error) => {
         console.error('WebSocket error:', error);
         setTimeout(initializeWebSocket, 5000);
       };
-
       ws.onclose = () => {
         console.log('WebSocket connection closed, attempting to reconnect...');
         setTimeout(initializeWebSocket, 5000);
       };
-
       return ws;
     };
 
@@ -148,33 +148,35 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
       }
     }
 
-    // Set up periodic position refresh
-    const refreshInterval = setInterval(() => {
-      loadPositions();
-    }, 30000); // Refresh every 30 seconds
-
     // Listen for position updates
     const handlePositionUpdate = () => {
       loadPositions();
     };
-
-    // Listen for force position updates
     const handleForcePositionUpdate = () => {
       loadPositions();
     };
-
     window.addEventListener('positionUpdate', handlePositionUpdate);
     window.addEventListener('forcePositionUpdate', handleForcePositionUpdate);
-
     return () => {
       if (ws) {
         ws.close();
       }
-      clearInterval(refreshInterval);
       window.removeEventListener('positionUpdate', handlePositionUpdate);
       window.removeEventListener('forcePositionUpdate', handleForcePositionUpdate);
     };
-  }, [positions.map(p => p.market).join(',')]); // Re-run when the set of market symbols changes
+  }, [positions.map(p => p.market).join(',')]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('positions-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'active_positions' }, payload => {
+        loadPositions();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleClosePosition = async (positionId: string) => {
     try {
@@ -252,7 +254,7 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
         ) : (
           <div className="space-y-4">
             {positions.map((position) => (
-              <div key={position.id} className="bg-neutral-900 rounded-lg p-4">
+              <div key={position.id} className={`bg-neutral-900 rounded-lg p-4 ${!position.is_open ? 'opacity-60' : ''}`}>
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center gap-2">
                     <span className={`text-lg font-semibold ${position.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
@@ -261,13 +263,18 @@ export function UserPositions({ reloadOrders }: UserPositionsProps) {
                     <span className={`text-sm px-2 py-1 rounded ${position.pnl >= 0 ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
                       {position.amount >= 0 ? 'LONG' : 'SHORT'}
                     </span>
+                    {!position.is_open && (
+                      <span className="ml-2 text-xs px-2 py-1 rounded bg-neutral-700 text-neutral-300 border border-neutral-500">Closed</span>
+                    )}
                   </div>
-                  <button
-                    onClick={() => handleClosePosition(position.id)}
-                    className="text-red-500 hover:text-red-400 text-sm font-medium"
-                  >
-                    Close
-                  </button>
+                  {position.is_open && (
+                    <button
+                      onClick={() => handleClosePosition(position.id)}
+                      className="text-red-500 hover:text-red-400 text-sm font-medium"
+                    >
+                      Close
+                    </button>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
