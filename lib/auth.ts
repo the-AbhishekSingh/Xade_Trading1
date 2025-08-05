@@ -3,7 +3,7 @@ import { User } from './types';
 import { v4 as uuidv4 } from 'uuid';
 
 // Set demo balance for a user
-export const setDemoBalance = async (walletAddress: string): Promise<boolean> => {
+export const setDemoBalance = async (walletAddress: string, balance: number = 10000): Promise<boolean> => {
   try {
     if (!walletAddress) {
       console.error('No wallet address provided');
@@ -13,7 +13,7 @@ export const setDemoBalance = async (walletAddress: string): Promise<boolean> =>
     const { error } = await supabase
       .from('users')
       .update({
-        current_balance: 10000,
+        current_balance: balance,
         current_pnl: 0,
         stage: 'demo',
         tier: 'basic'
@@ -25,7 +25,7 @@ export const setDemoBalance = async (walletAddress: string): Promise<boolean> =>
       return false;
     }
 
-    console.log('Demo balance set successfully for wallet:', walletAddress);
+    console.log('Demo balance set successfully for wallet:', walletAddress, 'with balance:', balance);
     return true;
   } catch (error) {
     console.error('Error in setDemoBalance:', error);
@@ -34,7 +34,7 @@ export const setDemoBalance = async (walletAddress: string): Promise<boolean> =>
 };
 
 // Initialize a new user in Supabase after successful Crossmint authentication
-export const initializeUser = async (walletAddress: string, email?: string): Promise<User | null> => {
+export const initializeUser = async (walletAddress: string, email?: string, balance: number = 10000): Promise<User | null> => {
   try {
     if (!walletAddress) {
       console.error('No wallet address provided');
@@ -56,7 +56,7 @@ export const initializeUser = async (walletAddress: string, email?: string): Pro
     // If user already exists, update their balance to demo amount
     if (existingUser) {
       console.log('Existing user found, updating to demo balance:', existingUser);
-      await setDemoBalance(walletAddress);
+      await setDemoBalance(walletAddress, balance);
       const { data: updatedUser } = await supabase
         .from('users')
         .select('*')
@@ -74,7 +74,7 @@ export const initializeUser = async (walletAddress: string, email?: string): Pro
       username,
       tier: 'basic',
       stage: 'demo',
-      current_balance: 10000, // Start with 10,000 in demo account
+      current_balance: balance, // Use the provided balance
       current_pnl: 0
     };
     

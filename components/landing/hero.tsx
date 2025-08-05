@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { CrossmintLoginButton } from '@/components/auth/crossmint-login';
+import { SimpleWalletLoginButton } from '@/components/auth/simple-wallet-login';
 
 export function LandingHero() {
   return (
@@ -40,7 +40,7 @@ export function LandingHero() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <CrossmintLoginButton variant="default" size="lg" />
+            <SimpleWalletLoginButton variant="default" size="lg" />
             {/* <Link href="/dashboard">
               <Button variant="outline" size="lg">
                 Explore Dashboard

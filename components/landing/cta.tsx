@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
-import { CrossmintLoginButton } from '@/components/auth/crossmint-login';
+import { SimpleWalletLoginButton } from '@/components/auth/simple-wallet-login';
 
 export function LandingCTA() {
   return (
@@ -29,7 +29,7 @@ export function LandingCTA() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <CrossmintLoginButton variant="default" size="lg" />
+              <SimpleWalletLoginButton variant="default" size="lg" />
               <Button variant="outline" size="lg">
                 Learn More
                 <ArrowRight className="ml-2 h-4 w-4" />

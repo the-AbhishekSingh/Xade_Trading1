@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from 'next/navigation';
-import { isAuthenticated } from '@/lib/auth';
+import { useEffect, useState } from 'react';
+import { isAuthenticated, getWalletAddress } from '@/lib/auth';
 
 const plans = [
   {
@@ -56,19 +57,43 @@ const plans = [
 
 export default function PricingPage() {
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
-  const handleBuyNow = (plan: typeof plans[number]) => {
-    // Check if user is authenticated
+  useEffect(() => {
+    // Check if user is authenticated, if not redirect to home
     if (!isAuthenticated()) {
-      // If not authenticated, store the selected plan and redirect to login
-      localStorage.setItem('selectedBalance', plan.balanceValue.toString());
-      router.push('/login');
-      return;
+      router.push('/');
     }
+  }, [router]);
 
-    // If authenticated, store the selected balance and redirect to dashboard
-    localStorage.setItem('selectedBalance', plan.balanceValue.toString());
-    router.push('/dashboard');
+  const handleBuyNow = async (plan: typeof plans[number]) => {
+    setIsLoading(true);
+    setSelectedPlan(plan.name);
+    
+    try {
+      const walletAddress = getWalletAddress();
+      
+      if (!walletAddress) {
+        console.error('No wallet address found');
+        router.push('/');
+        return;
+      }
+
+      // Store the selected balance and plan in localStorage for demo purposes
+      localStorage.setItem('selectedBalance', plan.balanceValue.toString());
+      localStorage.setItem('selectedPlan', plan.name);
+      localStorage.setItem('demoBalance', plan.balanceValue.toString());
+      
+      // Redirect to dashboard
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Error setting up demo account:', error);
+      alert('An error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+      setSelectedPlan(null);
+    }
   };
 
   return (
@@ -81,7 +106,7 @@ export default function PricingPage() {
           >
               <h2 className="text-2xl font-extrabold mb-2 text-black">{plan.name}</h2>
               <div className="text-3xl font-extrabold mb-1 text-blue-600">{plan.balance}</div>
-              <div className="text-gray-400 mb-2">Account Balance</div>
+              <div className="text-gray-400 mb-2">Demo Account Balance</div>
               <div className="mb-4">
                 <span className="text-black">Challenge Fee </span>
                 <span className="font-semibold text-blue-600">${plan.fee}</span>
@@ -102,10 +127,11 @@ export default function PricingPage() {
               <div className="text-blue-600 text-2xl font-bold mt-1">{plan.fee.toFixed(2)} $</div>
             </div>
             <button
-              className="w-full max-w-[160px] rounded-full py-2 px-6 text-white font-semibold text-lg transition bg-blue-600 hover:bg-blue-700"
+              className="w-full max-w-[160px] rounded-full py-2 px-6 text-white font-semibold text-lg transition bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => handleBuyNow(plan)}
+              disabled={isLoading}
             >
-              Buy Now
+              {isLoading && selectedPlan === plan.name ? 'Setting up...' : 'Choose Demo'}
             </button>
           </div>
         ))}

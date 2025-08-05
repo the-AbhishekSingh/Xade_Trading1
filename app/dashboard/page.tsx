@@ -97,12 +97,14 @@ export default function DashboardPage() {
         return;
       }
 
-      // Handle selected balance from pricing page
+      // Handle selected balance from pricing page - use localStorage instead of database
       const selectedBalance = localStorage.getItem('selectedBalance');
+      const demoBalance = localStorage.getItem('demoBalance');
       const walletAddress = localStorage.getItem('walletAddress');
+      
       if (selectedBalance && walletAddress) {
-        // Update the user's balance in the database
-        await updateUserBalance(walletAddress, Number(selectedBalance), 0);
+        // Store the balance in localStorage for immediate access
+        localStorage.setItem('userBalance', selectedBalance);
         // Trigger a storage event to update other components
         window.dispatchEvent(new Event('storage'));
         localStorage.removeItem('selectedBalance');
@@ -212,23 +214,40 @@ export default function DashboardPage() {
   useEffect(() => {
     const updatePortfolioValue = async () => {
       try {
+        // Get balance from localStorage (demo mode)
+        const demoBalance = localStorage.getItem('demoBalance');
+        const userBalance = localStorage.getItem('userBalance');
+        const selectedBalance = localStorage.getItem('selectedBalance');
+        
+        let currentBalance = 10000; // Default demo balance
+        if (demoBalance) {
+          currentBalance = Number(demoBalance);
+        } else if (userBalance) {
+          currentBalance = Number(userBalance);
+        } else if (selectedBalance) {
+          currentBalance = Number(selectedBalance);
+        }
+
         const walletAddress = localStorage.getItem('walletAddress');
-        if (!walletAddress) return;
+        if (walletAddress) {
+          try {
+            const apiPositions = await fetchPositions(walletAddress);
+            const positions = apiPositions.map(mapApiPositionToPosition);
+            const totalPnL = positions.reduce((acc, pos) => acc + pos.pnl, 0);
+            const totalNotional = positions.reduce((sum, pos) => sum + (pos.amount * pos.entry_price), 0);
+            const portfolioValue = currentBalance + totalPnL;
+            // PnL percentage vs. portfolio value
+            const pnlPercentage = portfolioValue ? (totalPnL / portfolioValue) * 100 : 0;
 
-        const apiUser = await getCurrentUser(walletAddress);
-        if (apiUser) {
-          const user = mapApiUserToUser(apiUser);
-          const apiPositions = await fetchPositions(user.wallet_address);
-          const positions = apiPositions.map(mapApiPositionToPosition);
-          const totalPnL = positions.reduce((acc, pos) => acc + pos.pnl, 0);
-          const totalNotional = positions.reduce((sum, pos) => sum + (pos.amount * pos.entry_price), 0);
-          const portfolioValue = (user.current_balance ?? 0) + totalPnL;
-          // PnL percentage vs. portfolio value
-          const pnlPercentage = portfolioValue ? (totalPnL / portfolioValue) * 100 : 0;
-
-          setPortfolioValue(portfolioValue);
-          setPnl({ value: totalPnL, percentage: pnlPercentage });
-          lastFetchTimeRef.current = Date.now();
+            setPortfolioValue(portfolioValue);
+            setPnl({ value: totalPnL, percentage: pnlPercentage });
+            lastFetchTimeRef.current = Date.now();
+          } catch (error) {
+            console.error('Error fetching positions:', error);
+            // If positions fail, just show the balance
+            setPortfolioValue(currentBalance);
+            setPnl({ value: 0, percentage: 0 });
+          }
         }
       } catch (error) {
         console.error('Error updating portfolio value:', error);
@@ -252,33 +271,62 @@ export default function DashboardPage() {
   const fetchUserAndPositions = async (walletAddress: string) => {
     setIsLoading(true);
     try {
-      const [apiUser, apiPositions] = await Promise.all([
-        getCurrentUser(walletAddress),
-        fetchPositions(walletAddress)
-      ]);
-      if (apiUser && apiPositions) {
-        const user = mapApiUserToUser(apiUser);
-        const positions = apiPositions.map(mapApiPositionToPosition);
-        setUser(user);
-        setPositions(positions);
-        console.log('Positions from backend:', positions); // Debug log
-        const balance = user.current_balance ?? 0;
-        const totalPositionValue = positions.reduce((sum: number, p: Position) => sum + (p.amount * p.current_price), 0);
-        const totalPnL = positions.reduce((acc: number, pos: Position) => acc + pos.pnl, 0);
-        const portfolioValue = balance + totalPositionValue;
-        const pnlPercentage = balance ? (totalPnL / balance) * 100 : 0;
-        
-        setPortfolioValue(portfolioValue);
-        setPnl({ value: totalPnL, percentage: pnlPercentage });
-        
-        const notional = positions.reduce((sum: number, p: Position) => sum + (p.amount * p.entry_price), 0);
-        const buyingPower = balance * 5 - notional;
-        setMarginInfo({
-          available: buyingPower,
-          used: notional,
-          total: balance * 5
-        });
+      // Get balance from localStorage (demo mode)
+      const demoBalance = localStorage.getItem('demoBalance');
+      const userBalance = localStorage.getItem('userBalance');
+      const selectedBalance = localStorage.getItem('selectedBalance');
+      
+      let currentBalance = 10000; // Default demo balance
+      if (demoBalance) {
+        currentBalance = Number(demoBalance);
+      } else if (userBalance) {
+        currentBalance = Number(userBalance);
+      } else if (selectedBalance) {
+        currentBalance = Number(selectedBalance);
       }
+
+      // Create a mock user object with localStorage balance
+      const mockUser: User = {
+        id: walletAddress,
+        wallet_address: walletAddress,
+        email: '',
+        username: `trader_${walletAddress.substring(0, 8)}`,
+        tier: 'basic',
+        stage: 'demo',
+        current_balance: currentBalance,
+        current_pnl: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const apiPositions = await fetchPositions(walletAddress);
+      const positions = apiPositions.map(mapApiPositionToPosition);
+      
+      setUser(mockUser);
+      setPositions(positions);
+      console.log('Positions from backend:', positions); // Debug log
+      
+      const totalPositionValue = positions.reduce((sum: number, p: Position) => sum + (p.amount * p.current_price), 0);
+      const totalPnL = positions.reduce((acc: number, pos: Position) => acc + pos.pnl, 0);
+      const portfolioValue = currentBalance + totalPositionValue;
+      const pnlPercentage = currentBalance ? (totalPnL / currentBalance) * 100 : 0;
+      
+      setPortfolioValue(portfolioValue);
+      setPnl({ value: totalPnL, percentage: pnlPercentage });
+      
+      const notional = positions.reduce((sum: number, p: Position) => sum + (p.amount * p.entry_price), 0);
+      const buyingPower = currentBalance * 5 - notional;
+      setMarginInfo({
+        available: buyingPower,
+        used: notional,
+        total: currentBalance * 5
+      });
+    } catch (error) {
+      console.error('Error in fetchUserAndPositions:', error);
+      // Set default values if everything fails
+      const currentBalance = Number(localStorage.getItem('demoBalance') || localStorage.getItem('userBalance') || localStorage.getItem('selectedBalance') || 10000);
+      setPortfolioValue(currentBalance);
+      setPnl({ value: 0, percentage: 0 });
     } finally {
       setIsLoading(false);
     }
@@ -288,10 +336,25 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
     console.log('Live positions state:', positions); // Debug log
+    
+    // Get balance from localStorage
+    const demoBalance = localStorage.getItem('demoBalance');
+    const userBalance = localStorage.getItem('userBalance');
+    const selectedBalance = localStorage.getItem('selectedBalance');
+    
+    let currentBalance = 10000; // Default demo balance
+    if (demoBalance) {
+      currentBalance = Number(demoBalance);
+    } else if (userBalance) {
+      currentBalance = Number(userBalance);
+    } else if (selectedBalance) {
+      currentBalance = Number(selectedBalance);
+    }
+    
     const totalPositionValue = positions.reduce((sum, pos) => sum + (pos.amount * pos.current_price), 0);
     const totalPnL = positions.reduce((acc, pos) => acc + pos.pnl, 0);
-    const portfolioValue = (user.current_balance ?? 0) + totalPositionValue;
-    const pnlPercentage = user.current_balance ? (totalPnL / user.current_balance) * 100 : 0;
+    const portfolioValue = currentBalance + totalPositionValue;
+    const pnlPercentage = currentBalance ? (totalPnL / currentBalance) * 100 : 0;
 
     setPortfolioValue(portfolioValue);
     setPnl({ value: totalPnL, percentage: pnlPercentage });
