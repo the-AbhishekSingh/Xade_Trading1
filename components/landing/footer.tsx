@@ -11,7 +11,7 @@ export function LandingFooter() {
               <span className="font-bold text-xl">AlphaTrade</span>
             </Link>
             <p className="text-muted-foreground text-sm">
-              Advanced cryptocurrency trading platform with Web3 authentication and real-time market data.
+              Advanced cryptocurrency trading platform with Web3 authentication and real-time market data
             </p>
           </div>
           
